@@ -192,7 +192,7 @@ function refresh(mese) {	// f-check: spurio
 		// se non è domenica e non è sabato...
 		if (mese["day"+j][1] != 0 && mese["day"+j][1] != 6) {   
 			cella = document.createElement("div");
-			cella.setAttribute("class"  , "cell");
+			cella.setAttribute("class"  , "cell date");
 			cella.setAttribute("id"     , "day" + j);
 			cella.setAttribute("onclick", "activeCell = clickDay('day" + j + "')");
 			cella.textContent = j;
@@ -465,25 +465,42 @@ body {
 	display: flex;
 	flex-wrap: wrap;
 	height: 15rem;
+	border-top: 2px solid black;
+	border-bottom: 2px solid black;
 }
 
 .cell, .placeholder {
 	width: 14%;
 	text-align: center;
 	margin: 0.5rem 3%;
-	height: 2rem;
-	line-height: 2rem;
 	box-sizing: border-box;
 }
 
+.placeholdfer {
+	height: 2rem;
+	line-height: 2rem;
+}
+
 .cell {
-	border: 2px solid black;
-	border-radius: 1rem;
 	background-color: #ffffff;
 	display: flex;
 	flex-direction: column;
-	/*align-content: center;*/
 	justify-content: center;
+}
+
+.day {
+	background-color: transparent;
+	height: 1rem;
+	line-height: 1rem;
+	color: #ffffaa;
+}
+
+.date {
+	border: 2px solid black;
+	border-radius: 1rem;
+	background-color: #ffffff;
+	height: 2rem;
+	line-height: 2rem;
 }
 
 .credit {
@@ -558,7 +575,7 @@ body {
 <div class="fullWidth" id="container">
 	<div class="unselectable" id="app_header">
 		<div class="unselectable" id="app_name">
-			Flessibilit&agrave; - MU
+			Flessibilit&agrave; MU
 		</div>
 		
 		<div class="unselectable" id="month"></div>
@@ -573,16 +590,18 @@ body {
 	
 	<div id="calendar">
 		<div class="cal_head unselectable">
-			<div class="cell day">Lu</div>
-			<div class="cell day">Ma</div>
-			<div class="cell day">Me</div>
-			<div class="cell day">Gi</div>
-			<div class="cell day">Ve</div>
+			<div class="cell day">Lun</div>
+			<div class="cell day">Mar</div>
+			<div class="cell day">Mer</div>
+			<div class="cell day">Gio</div>
+			<div class="cell day">Ven</div>
 		</div>
+		
+		<div id="table" class="unselectable">
+		</div>	
 	</div>
 
-	<div id="table" class="unselectable">
-	</div>
+
 
 </div>
 
