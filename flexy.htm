@@ -1,0 +1,599 @@
+<html>
+<head>
+<title>Flessibilit&agrave;</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script>
+
+// DEBUG FLAG
+const debug = true;
+
+
+// parametri iniziali
+const timeEn  = {hh:  7, mm: 45};	//        ora ingresso
+const timeEx  = {hh: 16, mm: 30};	//        ora uscita
+const flexy   = 75;					//        elasticità (1h15m)
+const lunchB  = {hh: 13, mm: 00};	//        inizio pausa
+const lunchE  = {hh: 13, mm: 45};	//        fine pausa
+
+const mmEn    = toMM(timeEn);		// 465m   ingresso in soli minuti
+const mmEx    = toMM(timeEx);		// 990m   uscita in soli minuti
+const mmLB    = toMM(lunchB);		// 780m   inizio pausa in soli minuti
+const mmLE    = toMM(lunchE);		// 825m   fine pausa in soli minuti
+	
+const giorno  = (mmEx - mmEn) - (mmLE - mmLB);  //480 minuti
+
+
+
+
+
+// Var globali
+let calendar;
+let activeMonth;
+let activeCell;
+
+
+// funzioni di base
+function node(id)          { return document.getElementById(id); }
+function getValue(id)      { return node(id).textContent; }
+function setValue(id, val) { return node(id).innerHTML = val; }	
+function show(id)          {        node(id).classList.remove("hidden"); }
+function hide(id)          {        node(id).classList.add("hidden"); }
+
+
+
+// converte un item in formato {hh: mm: } in un valore numerico di minuti dopo la mezzanotte e viceversa
+function toMM(a) { return (60 * a.hh) + a.mm }
+function toHM(a) { return {hh: Math.floor(a/60), mm: a % 60} }
+
+
+// restituisce il momento attuale { hh: , mm: }
+function now() {
+	let d   = new Date();
+	return {hh: d.getHours(), mm: d.getMinutes()}
+} 
+
+// gestione localstorage
+function save(key, item) {
+	let temp = JSON.stringify(item);
+	localStorage.setItem(key, temp);
+}
+
+function load(key) {
+	let temp1 = localStorage.getItem(key);
+	let temp2 = JSON.parse(temp1);
+	return temp2
+}
+
+function canc(key) {
+	localStorage.removeItem(key);
+}
+
+
+
+// genera un mese come item contenente day1 ... day31 (limitato fino a n)
+function MonthConstructor(n, firstDay, name){ // f-check: PURO JS
+	let i;
+	this["monthLength"] = n;
+	this["firstDay"] = firstDay; // 0-6
+	this["name"] = name;
+	for(i=1; i<=n; i++){
+		this["day"+ i] = [i, (firstDay - 1 + i)%7, , , 0, false]; // GG (1-n), giornosett (0-6), MM-in, MM-out, flex, ferie/problemi orario?
+	}
+	this["monthFlexy"] = 0;
+}
+
+
+function generaMese(){ // f-check: PURO JS
+	let userchoice = true //confirm("Genera un nuovo mese? I dati del mese attuale, se presente, saranno persi.");
+	if (!userchoice) { return }
+	
+	let d = new Date();
+	let nDays;
+	let name;
+	let monthID  = 4; //d.getMonth();
+	let yearID   = d.getFullYear();
+	let leapYear = (yearID % 4 == 0) ? 1 : 0;
+	let firstDay = new Date(yearID,monthID,1).getDay(); // 0-6 = Dom - Sab
+	
+	
+	switch(monthID + 1) {
+		case 1:
+			nDays = 31;
+			name = "Gen";
+			break;
+		case 2:
+			nDays = 28 + leapYear;
+			name = "Feb";
+			break;			
+		case 3:
+			nDays = 31;
+			name = "Mar";
+			break;		
+		case 4:
+			nDays = 30;
+			name = "Apr";
+			break;		
+		case 5:
+			nDays = 31;
+			name = "Mag";
+			break;		
+		case 6:
+			nDays = 30;
+			name = "Giu";
+			break;		
+		case 7:
+			nDays = 31;
+			name = "Lug";
+			break;		
+		case 8:
+			nDays = 31;
+			name = "Ago";
+			break;		
+		case 9:
+			nDays = 30;
+			name = "Set";
+			break;		
+		case 10:
+			nDays = 31;
+			name = "Ott";
+			break;		
+		case 11:
+			nDays = 30;
+			name = "Nov";
+			break;			
+		case 12:
+			nDays = 31;
+			name = "Dic";
+			break;			
+	}
+	
+	name = name + " " + yearID;
+	let meseCorr = new MonthConstructor(nDays, firstDay, name);
+	refresh(meseCorr);
+	
+	debug && console.log(meseCorr);
+	return meseCorr;
+	
+}
+
+function refresh(mese) {	// f-check: spurio
+
+	// primo giorno del mese. 0= Dom , 6= Sab
+	// se non c'è nessun mese definito, ESCE
+	if (typeof mese.firstDay == "undefined" || isNaN(mese.firstDay)) {return}
+	
+	node("month").textContent = mese.name;
+	let day;
+	let placeholder;
+	let cella;
+	
+	let i, j;
+	
+	// svuota la visualizzazione precedente (elimina, non nasconde)
+	while (calendar.firstChild) {
+		calendar.removeChild(calendar.firstChild);
+	}
+	
+	// ripopola il calendario ...
+	
+	// ... con 0-4 segnaposti vuoti ...
+	if (mese.firstDay != 0 && mese.firstDay != 6) {
+		for (i = 1; i < mese.firstDay; i++) {
+			placeholder = document.createElement("div");
+			placeholder.setAttribute("class"  , "placeholder");
+			calendar.appendChild(placeholder);
+		}
+	}
+	
+	// ... e coi giorni Lun-Ven
+	for (j = 1; j <= mese.monthLength; j++) {
+		
+		// se non è domenica e non è sabato...
+		if (mese["day"+j][1] != 0 && mese["day"+j][1] != 6) {   
+			cella = document.createElement("div");
+			cella.setAttribute("class"  , "cell");
+			cella.setAttribute("id"     , "day" + j);
+			cella.setAttribute("onclick", "activeCell = clickDay('day" + j + "')");
+			cella.textContent = j;
+			calendar.appendChild(cella);
+		}
+	}
+	
+	// per ogni cella
+	let allDays = calendar.querySelectorAll(".cell");
+	
+	allDays.forEach(
+		function(el){
+			let dayID = el.getAttribute("id");
+			dayFlex(mese, dayID);
+		}
+	)
+	
+
+}
+
+function clickDay(cID){ // f-check: spurio
+	
+	let newCell = node(cID);
+	debug && console.log("newCell inizializzata: ", newCell);
+	
+	let oldCell = calendar.querySelector(".active");
+	debug && console.log("oldCell esistente: ", oldCell);
+	
+	if (oldCell == newCell) { return newCell}
+	
+	oldCell && 	oldCell.classList.remove("active");
+				newCell.classList.add("active");
+	
+	//activeCell = newCell;
+	console.log("new: ", newCell);
+	return newCell
+}
+
+
+function dayFlex(mese, cID) { // f-check: PURO JS
+// calcola i vari margini giornalieri e aggiorna il totale mensile
+
+	let giorno = mese[cID];
+	
+	// se non ho timbratura in ingresso non ho giornata, resetta ed esci
+	if (isNaN(giorno[2])) { 
+		giorno[4] = 0;
+		giorno[5] = false;
+		return
+	}
+	
+	// ritardo in ingresso (non può essere negativo, se entri prima non conta)
+	let rit = Math.max(giorno[2] - mmEn, 0); 
+	
+	// se sfori troppo prenderai ferie e conta come entrato giusto, ma attiva la flag errore
+	if (rit > flexy) {
+		rit = 0;
+		giorno[5] = true;
+	}
+	
+	let rec; 
+	// se non ho timbratura in uscita, la giornata va completata
+	if 			(isNaN(giorno[3])) { 
+		rec = 0;
+	} else if 	(giorno[3] < mmEx) {
+		rec = 0;
+		giorno[5] = true;
+	} else {
+		rec = Math.max(giorno[3] - mmEx, 0); // recupero in uscita
+	}
+	
+	let day = rec - rit;
+	giorno[4] = day;
+	
+	// aggiornamenti globali, vedere se tenere qui o chiamare in refresh
+	monthTotal(mese);
+	updateCell(mese, cID);
+	
+	
+	return day
+}
+
+function monthTotal(mese) { // f-check: PURO JS
+	
+	let monthMargin = 0;
+	let dayMargin = 0;
+	
+	for (let i = 1; i <= mese.monthLength; i++) {
+		dayMargin = mese["day"+i][4];
+		
+		if ( !isNaN( dayMargin ) ) {
+			monthMargin = monthMargin + dayMargin;
+		}
+	}
+	
+	console.log(monthMargin);
+	
+	return monthMargin
+}
+
+
+
+
+function updateCell(mese, cID) { // f-check: PURO CSS
+
+	let cella  = node(cID);
+	let giorno = mese[cID]
+	
+	cella.classList.remove("debit", "even", "credit", "unfinished", "error");
+	
+	// se il giorno non è sviluppato, pulisci ed esci
+	if ( isNaN(giorno[2]) ) {
+		return 
+	}
+
+	
+	// se sei entrato ma non uscito, devi completare il giorno
+	if ( !isNaN(giorno[2]) && isNaN(giorno[3]) ) {
+		cella.classList.add("unfinished");
+	}
+	
+	// se c'è un errore, aggiungi classe errore
+	giorno[5] && cella.classList.add("error");
+	
+	// se le timbrature sono ok, colora la cella in base al margine di minuti
+	if        ( giorno[4] >  0 ) {
+		cella.classList.add("credit");
+	} else if ( giorno[4] <  0 ) {
+		cella.classList.add("debit");	
+	} else if ( giorno[4] == 0 ){
+		cella.classList.add("even");	
+	}
+}
+
+
+
+
+
+
+
+
+function init() {
+	calendar = node("table");
+}
+
+
+window.onload = function(){
+	init();
+	activeMonth = generaMese(); // ricordarsi di togliere
+	debug && console.log(activeMonth);
+	
+	if (debug) {	
+		// giorno perfetto
+		activeMonth["day6"][2]= 465 +0;
+		activeMonth["day6"][3]= 990 +0;
+		// giorno pareggio
+		activeMonth["day7"][2]= 465 +10;
+		activeMonth["day7"][3]= 990 +10;
+		// giorno ritardo
+		activeMonth["day8"][2]= 465 +40;
+		activeMonth["day8"][3]= 990 +20;
+		// giorno recupero
+		activeMonth["day9"][2]= 465 +20;
+		activeMonth["day9"][3]= 990 +50;
+		// giorno feriein
+		activeMonth["day10"][2]= 465 +120;
+		activeMonth["day10"][3]= 990 +0;
+		// giorno ferieout
+		activeMonth["day13"][2]= 465 +30;
+		activeMonth["day13"][3]= 990 -45;
+		
+		refresh(activeMonth);
+	}
+}
+
+</script>
+
+<style>
+html {
+	font-size: 16px;
+}
+@media (min-width: 600px) { html {font-size: 24px;} }
+
+
+.smallFont {
+	font-size: 0.75rem;
+}
+
+.smallestFont {
+	font-size: 12px;
+}
+
+.fullWidth {
+	width:100%;
+	/*max-width: 25rem;	*/
+}
+@media (min-width: 800px) { .fullWidth {max-width: 35rem;} }
+
+
+body {
+	background-color: #666666;
+	margin: 0px;
+	padding: 0px;
+	font-family: arial;
+}
+
+#container {
+	box-sizing: border-box;
+	padding: 0.25rem;
+	border-bottom: 3px solid black;
+	position: fixed;
+	top: 0px;
+	bottom: 3rem;
+	/*overflow-y: scroll;*/
+}
+
+#footer {
+	box-sizing: border-box;
+	padding: 0.25rem;
+	position: fixed;
+	bottom: 0px;
+	height: 3rem;
+	overflow: hidden;
+	background-color: #ccccff;
+}
+
+#menuInfo {
+	margin-left:  0.25rem;
+	margin-right: 0.5rem;
+	margin-top: auto;
+	margin-bottom: auto;
+	height:       1.5rem;
+	width:        1.5rem;
+	border: 1px solid black;
+	border-radius: 0.75rem;
+	background-color: #5050ff;
+	fill: white;
+	display: flex;
+}
+
+#iconInfo{
+	height: 1rem;
+	width:  1rem;
+	margin: auto;
+}
+
+#app_header {
+	height: 2rem;
+	display: flex;
+}
+
+#app_name, #month {
+	margin-left:  0.5rem;
+	margin-right: 0.5rem;
+	margin-top: auto;
+	margin-bottom: auto;
+	font-size: larger;
+	font-style: italic;
+	font-weight: bold;
+	color: #ffffaa;
+	font-variant: small-caps;
+}
+
+#month {
+	flex-grow: 1;
+	text-align: right;
+}
+
+#table {
+	display: flex;
+	flex-wrap: wrap;
+	height: 15rem;
+}
+
+.cell, .placeholder {
+	width: 14%;
+	text-align: center;
+	margin: 0.5rem 3%;
+	height: 2rem;
+	line-height: 2rem;
+	box-sizing: border-box;
+}
+
+.cell {
+	border: 2px solid black;
+	border-radius: 1rem;
+	background-color: #ffffff;
+	display: flex;
+	flex-direction: column;
+	/*align-content: center;*/
+	justify-content: center;
+}
+
+.credit {
+	background-color: #aaffaa;
+}
+
+.debit {
+	background-color: #ffaaaa;
+}
+
+.even {
+	background-color: #ffffaa;
+}
+
+.unfinished {
+	background-color: #aaaaff;
+}
+
+.error {
+	border-color: red !important;
+	animation: blinker 0.5s linear infinite;
+}
+
+@keyframes blinker {
+	30% {
+		opacity: 1;
+	}
+	60% {
+		opacity: 0;
+	}
+	62% {
+		opacity: 0;
+	}
+	70% {
+		opacity: 1;
+	}	
+}
+
+.placeholder {
+	background-color: transparent;
+}
+
+.hidden {
+	display: none;
+}
+
+.active {
+	border-width: 4px;
+	font-weight: bold;
+}
+
+.unselectable {
+	user-select: none;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+}
+
+.cal_head {
+	display: flex;
+	font-weight: bold;
+}
+
+
+
+</style>
+</head>
+
+<body>
+
+<!-- MAIN WINDOW -->
+<div class="fullWidth" id="container">
+	<div class="unselectable" id="app_header">
+		<div class="unselectable" id="app_name">
+			Flessibilit&agrave; - MU
+		</div>
+		
+		<div class="unselectable" id="month"></div>
+		
+		<div id="menuInfo" onclick="show('infoFrame')"> <!-- CAMBIARE ICONA E CALL -->
+			<svg xmlns="http://www.w3.org/2000/svg" id="iconInfo" viewBox="0 0 1024 1024">
+				<path d="m640.8 12.64c40.68-5.326 85.35 9.973 106.5 47.33 28.91 51.11 12.97 122.6-40.87 156.7-41.97 26.63-98.75 28.74-137.6 0.9018-33.6-23.9-45.5-73.5-33.7-115.1 13.7-48 56.6-83.33 105.7-89.76zm23.7 330.9c22.1 55.7-5.4 119.8-25.3 174.7-35.6 97.2-104.8 279-116.7 315.4-13.7 41.6-0.4 59.4 26.3 48.8 45.6-18.5 96-98.6 131.2-124 14.4-10.4 30 13.6 23.1 29.6-27.9 64.8-138.5 161.5-225.5 199.2-48 20.8-111.2 35.8-157.3 14.8-38.9-17.5-45.9-60.9-40.4-97.4 16.3-107.1 64.7-205.3 102.8-305.6 22.03-58 64.68-156.2 68-173.3 6.1-31.3-16.2-39.1-41.1-25.7-50.4 27.2-98.4 106-125.6 123.2-15.3 9.7-31.3-7.1-28-20.8 8-33.6 84-106.4 112-129.6 74.4-61.6 140.7-75.3 187.3-79.51 41.41-3.781 92.42 7.921 109.2 50.21z"/>
+			</svg>
+		</div>
+	</div>
+
+	
+	<div id="calendar">
+		<div class="cal_head unselectable">
+			<div class="cell day">Lu</div>
+			<div class="cell day">Ma</div>
+			<div class="cell day">Me</div>
+			<div class="cell day">Gi</div>
+			<div class="cell day">Ve</div>
+		</div>
+	</div>
+
+	<div id="table" class="unselectable">
+	</div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="fullWidth unselectable" id="footer"></div>
+
+
+
+
+</body>
+
+
+
+</html>
