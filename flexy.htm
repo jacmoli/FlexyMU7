@@ -327,9 +327,60 @@ function updateCell(mese, cID) { // f-check: PURO CSS
 	}
 }
 
+// fillTime viene chiamata dai pulsanti di timbratura ingresso e uscita
+function fillTime(inout){
+	let index;
+	if 			(inout == "in") { 
+		index = 2;  //indice array in
+	} else if 	(inout == "out") {
+		index = 3; //indice array out
+	}
 
+	let day = activeCell.id;
+	let orario;
 
+	if (isNaN(mese[day][index])) {
+		let d = new Date();
+		orario = {hh: d.getHours(), mm: d.getMinutes()}
+	} else {
+		orario = toHM(mese[day][index]);
+	}
 
+	show("mask"+inout);
+	setValue("hh"+inout, orario["hh"]);
+	setValue("mm"+inout, orario["mm"]);
+}
+
+// chiamata dia pulsanti di incremento/decremento ore e minuti
+function plusminus(incr, tgt, mini, maxi) {
+
+	let cell = node(tgt);
+	let val = cell.textContent + incr;
+
+	if (val < mini) { val = maxi }
+	if (val > maxi) { val = mini }
+
+	cell.textContent = val;
+
+	return val
+}
+
+// bip è la timbratura da settare nel giorno
+function bip(inout) {
+	
+	let minOnly = toMM( {hh:("hh"+inout).textContent, mm:("mm"+inout).textContent} )
+
+	let index;
+	if 			(inout == "in") { 
+		index = 2;  //indice array in
+	} else if 	(inout == "out") {
+		index = 3; //indice array out
+	}
+	
+	activeMonth[activeCell.id][index] = minOnly;
+	
+	return minOnly
+}
 
 
 
