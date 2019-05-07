@@ -368,7 +368,7 @@ function plusminus(incr, tgt, mini, maxi) {
 // bip è la timbratura da settare nel giorno
 function bip(inout) {
 	
-	let minOnly = toMM( {hh:("hh"+inout).textContent, mm:("mm"+inout).textContent} )
+	let minOnly = toMM( {hh:node("hh"+inout).textContent, mm:node("mm"+inout).textContent} )
 
 	let index;
 	if 			(inout == "in") { 
