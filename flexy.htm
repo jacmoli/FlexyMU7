@@ -595,7 +595,7 @@ body {
 }
 
 .hidden {
-	display: none;
+	display: none !important;
 }
 
 .active {
@@ -615,6 +615,86 @@ body {
 	font-weight: bold;
 }
 
+
+
+/* Stili maschere */
+
+.back {
+	position: absolute;
+	top:0;
+	bottom:0;
+	left:0;
+	right:0;
+	padding: 4.25rem 2rem 2rem;
+}
+
+#backin {
+	background-color: #55ff5599;
+}
+
+.mask {
+	flex-grow: 1;
+	background-color: #666666;
+	border-radius: 2rem;
+	padding: 2rem;
+}
+
+.btnRow {
+	display: flex;
+	justify-content: center;
+}
+
+.btnH, .btnM {
+	width: 5rem;
+	display: flex;
+	justify-content: center;
+}
+
+.hUP, .hDN {
+	width: 90%;
+	margin-left: 5%;
+	margin-right: 5%;
+}
+
+.mUP, .mDN {
+	width: 40%;
+	margin-left: 5%;
+	margin-right: 5%;
+}
+
+
+button {
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+}
+
+.time {
+	display: flex;
+	justify-content: center;
+}
+
+.number, .separator {
+	font-size: 3rem;
+}
+
+.number {
+	width: 5rem;
+	font-weight: bold;
+}
+
+.separator {
+	width: 2rem;
+	text-align: center;
+}
+
+#hhin, #hhout {
+	text-align: right;
+}
+
+#mmin, #mmout {
+	text-align: left;
+}
 
 
 </style>
@@ -653,11 +733,55 @@ body {
 	</div>
 
 
+	<!-- Mask in -->
+	<div class="back hidden" id="backin">
+		<div class="mask" id="maskin">
+
+			<div class="btnRow">
+				<div class="btnH">
+					<button class="hUP" onclick="">+</button>
+				</div>
+				
+				<div class="separator"></div>
+				
+				<div class="btnM">
+					<button class="mUP" onclick="">+</button>
+					<button class="mUP" onclick="">++</button>
+				</div>
+			</div>
+
+
+			<div class="time">
+				<div class="number" id="hhin">7</div>
+				<div class="separator">:</div>
+				<div class="number" id="mmin">52</div>
+			</div>
+
+
+			<div class="btnRow">
+				<div class="btnH">
+					<button class="hDN" onclick="">-</button>
+				</div>
+				
+				<div class="separator"></div>
+				
+				<div class="btnM">
+					<button class="mDN" onclick="">-</button>
+					<button class="mDN" onclick="">-</button>			
+				</div>
+			</div>
+
+		</div>
+	</div>
+
+
+
 
 </div>
 
 <!-- FOOTER -->
 <div class="fullWidth unselectable" id="footer"></div>
+
 
 
 
