@@ -40,7 +40,14 @@ function setValue(id, val) { return node(id).innerHTML = val; }
 function show(id)          {        node(id).classList.remove("hidden"); }
 function hide(id)          {        node(id).classList.add("hidden"); }
 
-
+function pad(n, width = 2, filler = 0) {
+	if (filler.length == 0) { return "Error" }
+	let num = n.toString();
+	while (num.length < width) {
+		num = "" + filler + num;
+	}
+	return num
+}
 
 // converte un item in formato {hh: mm: } in un valore numerico di minuti dopo la mezzanotte e viceversa
 function toMM(a) { return (60 * a.hh) + a.mm }
@@ -210,6 +217,13 @@ function refresh(mese) {	// f-check: spurio
 		}
 	)
 	
+	if (activeCell && activeCell.id) { 
+		activeCell = clickDay(activeCell.id); 
+	} else {
+		activeCell = clickDay(calendar.querySelector(".date").id);
+	}
+	
+	return
 
 }
 
@@ -337,30 +351,36 @@ function fillTime(inout){
 	}
 
 	let day = activeCell.id;
-	let orario;
-
-	if (isNaN(mese[day][index])) {
-		let d = new Date();
-		orario = {hh: d.getHours(), mm: d.getMinutes()}
-	} else {
-		orario = toHM(mese[day][index]);
+	let orario = {hh: 0, mm: 0};
+	let d = new Date();
+	
+	if (!isNaN(activeMonth[day][index])) {              // se esiste già, usa quello
+		orario = toHM(activeMonth[day][index]);
+	} else {                                            // se invece non esiste...
+		if (day == ( "day" + d.getDate() ) ) {          // se è oggi
+			orario.hh = d.getHours();
+			orario.mm = d.getMinutes();
+		} else {                                        // se no usa i default
+			if (inout == "in")  {orario = timeEn}
+			if (inout == "out") {orario = timeEx}
+		}
 	}
-
-	show("mask"+inout);
-	setValue("hh"+inout, orario["hh"]);
-	setValue("mm"+inout, orario["mm"]);
+	
+	show("back"+inout);
+	setValue("hh"+inout, pad(orario["hh"], 2, "0"));
+	setValue("mm"+inout, pad(orario["mm"], 2, "0"));
 }
 
 // chiamata dia pulsanti di incremento/decremento ore e minuti
-function plusminus(incr, tgt, mini, maxi) {
+function plusminus(tgt, incr, mini, maxi) {
 
 	let cell = node(tgt);
-	let val = cell.textContent + incr;
+	let val = parseInt(cell.textContent) + incr;
 
-	if (val < mini) { val = maxi }
-	if (val > maxi) { val = mini }
+	if (val < mini) { val = maxi + (val - mini) +1 }
+	if (val > maxi) { val = mini + (val - maxi) -1 }
 
-	cell.textContent = val;
+	cell.textContent = pad(val, 2, "0");
 
 	return val
 }
@@ -368,7 +388,7 @@ function plusminus(incr, tgt, mini, maxi) {
 // bip è la timbratura da settare nel giorno
 function bip(inout) {
 	
-	let minOnly = toMM( {hh:node("hh"+inout).textContent, mm:node("mm"+inout).textContent} )
+	let minOnly = toMM( {hh: parseInt(node("hh"+inout).textContent), mm: parseInt(node("mm"+inout).textContent) } )
 
 	let index;
 	if 			(inout == "in") { 
@@ -378,6 +398,9 @@ function bip(inout) {
 	}
 	
 	activeMonth[activeCell.id][index] = minOnly;
+	hide("back" + inout);
+	
+	refresh(activeMonth);
 	
 	return minOnly
 }
@@ -392,8 +415,15 @@ function init() {
 
 window.onload = function(){
 	init();
+
+	debug && console.log("Calendario: ");
+	debug && console.log(calendar);
+	
 	activeMonth = generaMese(); // ricordarsi di togliere
 	debug && console.log(activeMonth);
+	
+
+	
 	
 	if (debug) {	
 		// giorno perfetto
@@ -403,17 +433,17 @@ window.onload = function(){
 		activeMonth["day7"][2]= 465 +10;
 		activeMonth["day7"][3]= 990 +10;
 		// giorno ritardo
-		activeMonth["day8"][2]= 465 +40;
-		activeMonth["day8"][3]= 990 +20;
+		activeMonth["day1"][2]= 465 +40;
+		activeMonth["day1"][3]= 990 +20;
 		// giorno recupero
-		activeMonth["day9"][2]= 465 +20;
-		activeMonth["day9"][3]= 990 +50;
+		activeMonth["day2"][2]= 465 +20;
+		activeMonth["day2"][3]= 990 +50;
 		// giorno feriein
-		activeMonth["day10"][2]= 465 +120;
-		activeMonth["day10"][3]= 990 +0;
+		activeMonth["day29"][2]= 465 +120;
+		activeMonth["day29"][3]= 990 +0;
 		// giorno ferieout
-		activeMonth["day13"][2]= 465 +30;
-		activeMonth["day13"][3]= 990 -45;
+		activeMonth["day3"][2]= 465 +30;
+		activeMonth["day3"][3]= 990 -45;
 		
 		refresh(activeMonth);
 	}
@@ -625,18 +655,22 @@ body {
 	bottom:0;
 	left:0;
 	right:0;
-	padding: 4.25rem 2rem 2rem;
+	padding: 4.25rem 1rem 1rem;
 }
 
 #backin {
 	background-color: #55ff5599;
 }
 
+#backout {
+	background-color: #ff555599;
+}
+
 .mask {
 	flex-grow: 1;
 	background-color: #666666;
 	border-radius: 2rem;
-	padding: 2rem;
+	padding: 1rem;
 }
 
 .btnRow {
@@ -644,29 +678,22 @@ body {
 	justify-content: center;
 }
 
-.btnH, .btnM {
-	width: 5rem;
+.btnGroup {
+	width: 8rem;
 	display: flex;
 	justify-content: center;
 }
 
 .hUP, .hDN {
-	width: 90%;
-	margin-left: 5%;
-	margin-right: 5%;
+	width:        7rem;
+	margin-left:  0.5rem;
+	margin-right: 0.5rem;
 }
 
 .mUP, .mDN {
-	width: 40%;
-	margin-left: 5%;
-	margin-right: 5%;
-}
-
-
-button {
-	-webkit-appearance: none;
-	-moz-appearance: none;
-	appearance: none;
+	width:        3.5rem;
+	margin-left:  0.25rem;
+	margin-right: 0.25rem;
 }
 
 .time {
@@ -676,6 +703,7 @@ button {
 
 .number, .separator {
 	font-size: 3rem;
+	color: #ffffaa;
 }
 
 .number {
@@ -684,7 +712,7 @@ button {
 }
 
 .separator {
-	width: 2rem;
+	width: 1rem;
 	text-align: center;
 }
 
@@ -694,6 +722,138 @@ button {
 
 #mmin, #mmout {
 	text-align: left;
+}
+
+
+/* custom buttons */
+
+.myButton {
+	-moz-box-shadow:inset 0px 1px 0px 0px #fff6af;
+	-webkit-box-shadow:inset 0px 1px 0px 0px #fff6af;
+	box-shadow:inset 0px 1px 0px 0px #fff6af;
+	background:-webkit-gradient(linear, left top, left bottom, color-stop(0.05, #ffec64), color-stop(1, #ffab23));
+	background:-moz-linear-gradient(top, #ffec64 5%, #ffab23 100%);
+	background:-webkit-linear-gradient(top, #ffec64 5%, #ffab23 100%);
+	background:-o-linear-gradient(top, #ffec64 5%, #ffab23 100%);
+	background:-ms-linear-gradient(top, #ffec64 5%, #ffab23 100%);
+	background:linear-gradient(to bottom, #ffec64 5%, #ffab23 100%);
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffec64', endColorstr='#ffab23',GradientType=0);
+	background-color:#ffec64;
+}
+
+.myButton {
+	-moz-border-radius: 1.125rem;
+	-webkit-border-radius: 1.125rem;
+	border-radius: 1.125rem;
+	border: 0.125rem solid #ffaa22;
+	display: inline-block;
+	cursor: pointer;
+	color: #333333;
+	font-size: 1rem;
+	line-height: 2rem;
+	height: 2rem;
+	text-align: center;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.myButton:hover {
+	background:-webkit-gradient(linear, left top, left bottom, color-stop(0.05, #ffab23), color-stop(1, #ffec64));
+	background:-moz-linear-gradient(top, #ffab23 5%, #ffec64 100%);
+	background:-webkit-linear-gradient(top, #ffab23 5%, #ffec64 100%);
+	background:-o-linear-gradient(top, #ffab23 5%, #ffec64 100%);
+	background:-ms-linear-gradient(top, #ffab23 5%, #ffec64 100%);
+	background:linear-gradient(to bottom, #ffab23 5%, #ffec64 100%);
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffab23', endColorstr='#ffec64',GradientType=0);
+	background-color:#ffab23;
+}
+
+.myButton:active {
+	position:relative;
+	top:1px;
+}
+
+#actions {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin-top: 2rem;
+}
+
+#getIN, #factoryContainer, #getOUT {
+	display: flex;
+	width: 5rem;
+	height: 4rem;
+	box-sizing: border-box;
+	text-align: center;
+	line-height: 4rem;
+	font-size: 4rem;
+}
+
+#getIN {
+	background-color: #55ff55;
+	border: 4px solid #005500;
+	border-radius: 2rem 0.5rem 0.5rem 2rem;
+}
+
+#getOUT {
+	background-color: #ff5555;
+	border: 4px solid #ff0000;
+	border-radius: 0.5rem 2rem 2rem 0.5rem;
+}
+
+#factoryContainer {
+	margin-left: 1rem;
+	margin-right: 1rem;
+	/*background-color: white;*/
+	border-radius: 0.5rem;
+}
+
+#factory {
+	height: 3rem;
+}
+
+.vertCenter {
+	margin: auto;
+}
+
+@keyframes slide1 {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(1rem, 0);
+  }
+}
+
+#signin, #signout {
+	height: 3rem;
+}
+
+.okORno {
+	display: flex;
+	justify-content: space-evenly;
+	margin-top: 2rem;
+}
+
+.sayOK, .sayNO {
+	width: 8rem;
+	height: 2rem;
+	line-height: 2rem;
+	text-align: center;
+	border: 2px solid;
+	border-radius: 0.75rem;
+}
+
+.sayOK {
+	background-color: #00BCD4;
+	border-color: #0000ff;
+}
+
+.sayNO {
+	background-color: #ff5722;
+	border-color: #660000;
 }
 
 
@@ -734,60 +894,152 @@ button {
 
 
 	<!-- Mask in -->
-	<div class="back hidden" id="backin">
+	<div class="back unselectable hidden" id="backin"> 
 		<div class="mask" id="maskin">
 
 			<div class="btnRow">
-				<div class="btnH">
-					<button class="hUP" onclick="">+</button>
+				<div class="btnGroup">
+					<div class="myButton hUP" onclick="plusminus('hhin', +1 , 0, 23)">+1</div>
 				</div>
 				
 				<div class="separator"></div>
 				
-				<div class="btnM">
-					<button class="mUP" onclick="">+</button>
-					<button class="mUP" onclick="">++</button>
+				<div class="btnGroup">
+					<div class="myButton mUP" onclick="plusminus('mmin', +1 , 0, 59)">+1</div>
+					<div class="myButton mUP" onclick="plusminus('mmin', +10, 0, 59)">+10</div>
 				</div>
 			</div>
 
 
 			<div class="time">
-				<div class="number" id="hhin">7</div>
+				<div class="number" id="hhin"></div>
 				<div class="separator">:</div>
-				<div class="number" id="mmin">52</div>
+				<div class="number" id="mmin"></div>
 			</div>
 
 
 			<div class="btnRow">
-				<div class="btnH">
-					<button class="hDN" onclick="">-</button>
+				<div class="btnGroup">
+					<div class="myButton hDN" onclick="plusminus('hhin', -1 , 0, 23)">-1</div>
 				</div>
 				
 				<div class="separator"></div>
 				
-				<div class="btnM">
-					<button class="mDN" onclick="">-</button>
-					<button class="mDN" onclick="">-</button>			
+				<div class="btnGroup">
+					<div class="myButton mDN" onclick="plusminus('mmin', -1 , 0, 59)">-1</div>
+					<div class="myButton mDN" onclick="plusminus('mmin', -10, 0, 59)">-10</div>
 				</div>
+			</div>
+			
+			<div class="okORno">
+				<div class="sayNO" onclick="hide('backin')">CANCEL</div>
+				<div class="sayOK" onclick="bip('in')">OK</div>
 			</div>
 
 		</div>
 	</div>
 
+	<!-- Mask out -->
+	<div class="back unselectable hidden" id="backout"> 
+		<div class="mask" id="maskout">
+
+			<div class="btnRow">
+				<div class="btnGroup">
+					<div class="myButton hUP" onclick="plusminus('hhout', +1 , 0, 23)">+1</div>
+				</div>
+				
+				<div class="separator"></div>
+				
+				<div class="btnGroup">
+					<div class="myButton mUP" onclick="plusminus('mmout', +1 , 0, 59)">+1</div>
+					<div class="myButton mUP" onclick="plusminus('mmout', +10, 0, 59)">+10</div>
+				</div>
+			</div>
 
 
+			<div class="time">
+				<div class="number" id="hhout"></div>
+				<div class="separator">:</div>
+				<div class="number" id="mmout"></div>
+			</div>
 
-</div>
+
+			<div class="btnRow">
+				<div class="btnGroup">
+					<div class="myButton hDN" onclick="plusminus('hhout', -1 , 0, 23)">-1</div>
+				</div>
+				
+				<div class="separator"></div>
+				
+				<div class="btnGroup">
+					<div class="myButton mDN" onclick="plusminus('mmout', -1 , 0, 59)">-1</div>
+					<div class="myButton mDN" onclick="plusminus('mmout', -10, 0, 59)">-10</div>
+				</div>
+			</div>
+			
+			<div class="okORno">
+				<div class="sayNO" onclick="hide('backout')">CANCEL</div>
+				<div class="sayOK" onclick="bip('out')">OK</div>
+			</div>
+		</div>
+
+	</div>
+
+
+	
+	<div id="actions">
+	
+		<div id="getIN" onclick="fillTime('in')">
+			<div class="vertCenter">
+				<svg version="1.1" id="signin" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 438.542 438.542" style="enable-background:new 0 0 438.542 438.542;" xml:space="preserve">
+
+					<path d="M414.41,60.676c-16.084-16.083-35.446-24.125-58.102-24.125h-91.357c-2.478,0-4.429,0.614-5.853,1.855 c-1.431,1.237-2.382,3.093-2.854,5.568c-0.479,2.474-0.76,4.709-0.853,6.707c-0.096,1.997-0.051,4.521,0.144,7.565 c0.186,3.046,0.281,4.949,0.281,5.713c0.571,1.524,0.767,2.81,0.571,3.855c-0.191,1.043,0.476,1.903,1.998,2.568 c1.52,0.666,2.279,1.191,2.279,1.569c0,0.378,1.096,0.662,3.285,0.855c2.19,0.192,3.289,0.284,3.289,0.284h3.713h3.142h82.228 c12.56,0,23.312,4.471,32.258,13.422c8.952,8.945,13.422,19.696,13.422,32.261V319.77c0,12.563-4.47,23.312-13.422,32.258 c-8.945,8.948-19.698,13.421-32.258,13.421h-91.357c-2.478,0-4.436,0.62-5.853,1.855c-1.43,1.242-2.382,3.094-2.857,5.564 c-0.476,2.478-0.763,4.716-0.855,6.714c-0.092,1.995-0.051,4.518,0.144,7.563c0.195,3.046,0.288,4.948,0.288,5.708 c0,2.478,0.896,4.613,2.707,6.427c1.81,1.807,3.949,2.71,6.427,2.71h91.357c22.648,0,42.018-8.042,58.095-24.133 c16.084-16.077,24.126-35.446,24.126-58.095V118.769C438.533,96.118,430.491,76.754,414.41,60.676z"/>
+					<path d="M338.047,219.27c0-4.948-1.813-9.233-5.427-12.85L177.302,51.101c-3.616-3.612-7.895-5.424-12.847-5.424 c-4.952,0-9.233,1.812-12.85,5.424c-3.615,3.617-5.424,7.904-5.424,12.85v82.226H18.274c-4.952,0-9.235,1.812-12.851,5.424 C1.807,155.219,0,159.503,0,164.452v109.635c0,4.949,1.807,9.233,5.424,12.848c3.619,3.61,7.902,5.427,12.851,5.427h127.906 v82.225c0,4.945,1.809,9.233,5.424,12.847c3.621,3.617,7.902,5.428,12.85,5.428c4.949,0,9.231-1.811,12.847-5.428l155.318-155.312 C336.234,228.501,338.047,224.216,338.047,219.27z"/>
+				</svg>
+			
+			</div>
+		</div>
+	
+		<div id="factoryContainer">
+			<div class="vertCenter">
+				<svg xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://web.resource.org/cc/" xmlns:dc="http://purl.org/dc/elements/1.1/" id="factory" xml:space="preserve" version="1.0" viewBox="0 0 512 438">
+					<metadata id="metadata1952"><rdf:RDF><cc:Work rdf:about="">
+						<dc:format>image/svg+xml</dc:format>
+						<dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+						</cc:Work>
+						</rdf:RDF>
+					</metadata>
+					<g id="g1935" transform="matrix(2.1362 0 0 1.8263 -281.14 -175.72)">
+						<polygon id="polygon1945" points="274.57 266.94 207.9 227.92 207.9 266.94 141.23 227.92 141.23 318.56 362.99 318.56 360.25 154.12 343.48 154.12 341.6 266.94 274.57 227.92 274.57 227.92"/>
+						<path id="path1947" d="m205.38 128.34c7.78 9.5 19.37 15.26 31.68 15.26 7.2 0 14.26-2.08 20.45-5.76l9.14 9.36c-23.11 16.06-54.65 11.09-71.78-11.37l10.51-7.49z"/>
+						<path id="path1949" d="m339.37 142.67l12.75-4.61c-9.65-14.69-26.07-23.69-43.85-23.69-13.18 0-25.78 4.97-35.43 13.83l9.15 8.78c17.06-15.05 43.56-12.46 57.38 5.69z"/>
+					</g>
+				</svg>
+			</div>
+		</div>
+	
+		<div id="getOUT" onclick="fillTime('out')">
+			<div class="vertCenter">
+				<svg version="1.1" id="signout" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 447.674 447.674" style="enable-background:new 0 0 447.674 447.674;" xml:space="preserve">
+					<path d="M182.725,379.151c-0.572-1.522-0.769-2.816-0.575-3.863c0.193-1.04-0.472-1.902-1.997-2.566 c-1.525-0.664-2.286-1.191-2.286-1.567c0-0.38-1.093-0.667-3.284-0.855c-2.19-0.191-3.283-0.288-3.283-0.288h-3.71h-3.14H82.22 c-12.562,0-23.317-4.469-32.264-13.421c-8.945-8.946-13.417-19.698-13.417-32.258V123.335c0-12.562,4.471-23.313,13.417-32.259 c8.947-8.947,19.702-13.422,32.264-13.422h91.361c2.475,0,4.421-0.614,5.852-1.854c1.425-1.237,2.375-3.094,2.853-5.568 c0.476-2.474,0.763-4.708,0.859-6.707c0.094-1.997,0.048-4.521-0.144-7.566c-0.189-3.044-0.284-4.947-0.284-5.712 c0-2.474-0.905-4.611-2.712-6.423c-1.809-1.804-3.949-2.709-6.423-2.709H82.224c-22.648,0-42.016,8.042-58.101,24.125 C8.042,81.323,0,100.688,0,123.338v200.994c0,22.648,8.042,42.018,24.123,58.095c16.085,16.091,35.453,24.133,58.101,24.133 h91.365c2.475,0,4.422-0.622,5.852-1.854c1.425-1.239,2.375-3.094,2.853-5.571c0.476-2.471,0.763-4.716,0.859-6.707 c0.094-1.999,0.048-4.518-0.144-7.563C182.818,381.817,182.725,379.915,182.725,379.151z"/>
+					<path d="M442.249,210.989L286.935,55.67c-3.614-3.612-7.898-5.424-12.847-5.424c-4.949,0-9.233,1.812-12.851,5.424 c-3.617,3.617-5.424,7.904-5.424,12.85v82.226H127.907c-4.952,0-9.233,1.812-12.85,5.424c-3.617,3.617-5.424,7.901-5.424,12.85 v109.636c0,4.948,1.807,9.232,5.424,12.847c3.621,3.61,7.901,5.427,12.85,5.427h127.907v82.225c0,4.945,1.807,9.233,5.424,12.847 c3.617,3.617,7.901,5.428,12.851,5.428c4.948,0,9.232-1.811,12.847-5.428L442.249,236.69c3.617-3.62,5.425-7.898,5.425-12.848 C447.674,218.894,445.866,214.606,442.249,210.989z"/>
+				</svg>
+			</div>
+		</div>	
+	
+	
+	</div>
+	
+	
+	
+	
+	
+
+</div> 
+<!-- END CONTAINER -->
 
 <!-- FOOTER -->
 <div class="fullWidth unselectable" id="footer"></div>
 
-
-
-
-
 </body>
-
-
-
 </html>
