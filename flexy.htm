@@ -6,7 +6,7 @@
 <script>
 
 // DEBUG FLAG
-const debug = true;
+const debug = false;
 
 
 // parametri iniziali
@@ -23,9 +23,11 @@ const mmLE    = toMM(lunchE);		// 825m   fine pausa in soli minuti
 	
 const giorno  = (mmEx - mmEn) - (mmLE - mmLB);  //480 minuti
 
+const indexEnt = 2;
+const indexExt = 3;
+const indexErr = 5;
 
-
-
+const savekey = "C81_flexy7MU";
 
 // Var globali
 let calendar;
@@ -85,20 +87,22 @@ function MonthConstructor(n, firstDay, name){ // f-check: PURO JS
 	this["firstDay"] = firstDay; // 0-6
 	this["name"] = name;
 	for(i=1; i<=n; i++){
-		this["day"+ i] = [i, (firstDay - 1 + i)%7, , , 0, false]; // GG (1-n), giornosett (0-6), MM-in, MM-out, flex, ferie/problemi orario?
+		this["day"+ i] = [i, (firstDay - 1 + i)%7, null, null, 0, false]; // GG (1-n), giornosett (0-6), MM-in, MM-out, flex, ferie/problemi orario?
 	}
 	this["monthFlexy"] = 0;
 }
 
 
-function generaMese(){ // f-check: PURO JS
-	let userchoice = true //confirm("Genera un nuovo mese? I dati del mese attuale, se presente, saranno persi.");
+function generaMese(force = false){ // f-check: PURO JS
+	
+	let userchoice = true;
+	if (!force) { userchoice = confirm("Genera un nuovo mese? I dati del mese attuale, se presente, saranno persi.");}
 	if (!userchoice) { return }
 	
 	let d = new Date();
 	let nDays;
 	let name;
-	let monthID  = 4; //d.getMonth();
+	let monthID  = d.getMonth();
 	let yearID   = d.getFullYear();
 	let leapYear = (yearID % 4 == 0) ? 1 : 0;
 	let firstDay = new Date(yearID,monthID,1).getDay(); // 0-6 = Dom - Sab
@@ -157,18 +161,26 @@ function generaMese(){ // f-check: PURO JS
 	
 	name = name + " " + yearID;
 	let meseCorr = new MonthConstructor(nDays, firstDay, name);
-	refresh(meseCorr);
 	
 	debug && console.log(meseCorr);
 	return meseCorr;
 	
 }
 
+function clean(tab) {
+	while (tab.firstChild) {
+		tab.removeChild(tab.firstChild);
+	}
+	tab.textContent = "";
+	return
+}
+
 function refresh(mese) {	// f-check: spurio
 
 	// primo giorno del mese. 0= Dom , 6= Sab
 	// se non c'è nessun mese definito, ESCE
-	if (typeof mese.firstDay == "undefined" || isNaN(mese.firstDay)) {return}
+	
+	if (typeof(mese) == "undefined" || isNaN(mese.firstDay) || mese.firstDay == null) {return}
 	
 	node("month").textContent = mese.name;
 	let day;
@@ -178,9 +190,7 @@ function refresh(mese) {	// f-check: spurio
 	let i, j;
 	
 	// svuota la visualizzazione precedente (elimina, non nasconde)
-	while (calendar.firstChild) {
-		calendar.removeChild(calendar.firstChild);
-	}
+	clean(calendar);
 	
 	// ripopola il calendario ...
 	
@@ -202,6 +212,7 @@ function refresh(mese) {	// f-check: spurio
 			cella.setAttribute("class"  , "cell date");
 			cella.setAttribute("id"     , "day" + j);
 			cella.setAttribute("onclick", "activeCell = clickDay('day" + j + "')");
+			cella.setAttribute("oncontextmenu", "resetDay('day" + j + "'); return false");			
 			cella.textContent = j;
 			calendar.appendChild(cella);
 		}
@@ -223,11 +234,34 @@ function refresh(mese) {	// f-check: spurio
 		activeCell = clickDay(calendar.querySelector(".date").id);
 	}
 	
+	let margin = mese.monthFlexy;
+	
+	margin = (margin >0) ? "+" + margin : margin;
+	
+	node("summary").textContent = margin;
+	
+	node("summary").classList.remove("txtred", "txtgreen", "txtblack")
+	
+	if (mese.monthFlexy > 0 ) {
+		node("summary").classList.add("txtgreen");
+	} else if (mese.monthFlexy < 0 ) {
+		node("summary").classList.add("txtred");
+	} else {
+		node("summary").classList.add("txtblack");
+	}
+	
+	logFiller(activeCell.id);
+	
+	canc(savekey);
+	save(savekey, mese);
+	
+	
 	return
 
 }
 
 function clickDay(cID){ // f-check: spurio
+	if ( typeof(cID) == "unefined" ) {return}
 	
 	let newCell = node(cID);
 	debug && console.log("newCell inizializzata: ", newCell);
@@ -240,49 +274,90 @@ function clickDay(cID){ // f-check: spurio
 	oldCell && 	oldCell.classList.remove("active");
 				newCell.classList.add("active");
 	
-	//activeCell = newCell;
-	console.log("new: ", newCell);
+	debug && console.log("new: ", newCell);
+	
+	logFiller(cID);
+	
 	return newCell
 }
+
+function logFiller(cID) {
+
+	if ( typeof(cID) == "unefined" ) {return}
+	
+	let timeINaux  = activeMonth[cID][indexEnt];
+	let timeOUTaux = activeMonth[cID][indexExt];
+	
+	let timeIN  = timeINaux  
+		? pad(toHM(timeINaux).hh,  2, "0") + ":" + pad(toHM(timeINaux).mm,  2, "0")
+		: "N / A";
+
+	let timeOUT = timeOUTaux  
+		? pad(toHM(timeOUTaux).hh, 2, "0") + ":" + pad(toHM(timeOUTaux).mm, 2, "0")
+		: "N / A";
+		
+	node("logIN").textContent  = timeIN;
+	node("logOUT").textContent = timeOUT;
+	
+	node("logIN" ).classList.remove("txtred", "txtblack");
+	node("logOUT").classList.remove("txtred", "txtblack");
+	
+	if (timeINaux && timeINaux > mmEn + flexy) {
+		node("logIN" ).classList.add("txtred");
+	} else {
+		node("logIN" ).classList.add("txtblack");
+	}
+	
+	if (timeOUTaux && timeOUTaux < mmEx) {
+		node("logOUT").classList.add("txtred");
+	} else {
+		node("logOUT").classList.add("txtblack");
+	}
+	
+	return
+}
+
 
 
 function dayFlex(mese, cID) { // f-check: PURO JS
 // calcola i vari margini giornalieri e aggiorna il totale mensile
 
+	if ( typeof(cID) == "unefined" ) {return}
+	
 	let giorno = mese[cID];
 	
 	// se non ho timbratura in ingresso non ho giornata, resetta ed esci
-	if (isNaN(giorno[2])) { 
+	if (giorno[indexEnt] == null) { 
 		giorno[4] = 0;
-		giorno[5] = false;
+		giorno[indexErr] = false;
 		return
 	}
 	
 	// ritardo in ingresso (non può essere negativo, se entri prima non conta)
-	let rit = Math.max(giorno[2] - mmEn, 0); 
+	let rit = Math.max(giorno[indexEnt] - mmEn, 0); 
 	
 	// se sfori troppo prenderai ferie e conta come entrato giusto, ma attiva la flag errore
 	if (rit > flexy) {
 		rit = 0;
-		giorno[5] = true;
+		giorno[indexErr] = true;
 	}
 	
 	let rec; 
 	// se non ho timbratura in uscita, la giornata va completata
-	if 			(isNaN(giorno[3])) { 
+	if 			(giorno[indexExt] == null) { 
 		rec = 0;
-	} else if 	(giorno[3] < mmEx) {
+	} else if 	(giorno[indexExt] < mmEx) {
 		rec = 0;
-		giorno[5] = true;
+		giorno[indexErr] = true;
 	} else {
-		rec = Math.max(giorno[3] - mmEx, 0); // recupero in uscita
+		rec = Math.max(giorno[indexExt] - mmEx, 0); // recupero in uscita
 	}
 	
 	let day = rec - rit;
 	giorno[4] = day;
 	
 	// aggiornamenti globali, vedere se tenere qui o chiamare in refresh
-	monthTotal(mese);
+	mese.monthFlexy = monthTotal(mese);
 	updateCell(mese, cID);
 	
 	
@@ -290,6 +365,8 @@ function dayFlex(mese, cID) { // f-check: PURO JS
 }
 
 function monthTotal(mese) { // f-check: PURO JS
+
+	if ( typeof(mese) == "unefined" ) {return}
 	
 	let monthMargin = 0;
 	let dayMargin = 0;
@@ -302,7 +379,7 @@ function monthTotal(mese) { // f-check: PURO JS
 		}
 	}
 	
-	console.log(monthMargin);
+	debug && console.log(monthMargin);
 	
 	return monthMargin
 }
@@ -312,54 +389,59 @@ function monthTotal(mese) { // f-check: PURO JS
 
 function updateCell(mese, cID) { // f-check: PURO CSS
 
+	if ( typeof(mese) == "unefined" || typeof(cID) == "unefined" ) {return}
+
 	let cella  = node(cID);
-	let giorno = mese[cID]
+	let giorno = mese[cID];
+	
+	let full = !!( giorno[indexEnt] && giorno[indexExt] ); //true se il giorno è completo
 	
 	cella.classList.remove("debit", "even", "credit", "unfinished", "error");
 	
 	// se il giorno non è sviluppato, pulisci ed esci
-	if ( isNaN(giorno[2]) ) {
+	if ( giorno[indexEnt] == null ) {
 		return 
 	}
 
 	
 	// se sei entrato ma non uscito, devi completare il giorno
-	if ( !isNaN(giorno[2]) && isNaN(giorno[3]) ) {
+	if ( giorno[indexEnt] != null && giorno[indexExt] == null ) {
 		cella.classList.add("unfinished");
 	}
 	
 	// se c'è un errore, aggiungi classe errore
-	giorno[5] && cella.classList.add("error");
+	giorno[indexErr] && cella.classList.add("error");
 	
 	// se le timbrature sono ok, colora la cella in base al margine di minuti
-	if        ( giorno[4] >  0 ) {
+	if        ( full && giorno[4] >  0 ) {
 		cella.classList.add("credit");
-	} else if ( giorno[4] <  0 ) {
+	} else if ( full && giorno[4] <  0 ) {
 		cella.classList.add("debit");	
-	} else if ( giorno[4] == 0 ){
+	} else if ( full && giorno[4] == 0 ){
 		cella.classList.add("even");	
 	}
 }
 
 // fillTime viene chiamata dai pulsanti di timbratura ingresso e uscita
 function fillTime(inout){
+	if ( typeof(activeCell) == "unefined" || activeCell == null) {return}	
+	
 	let index;
 	if 			(inout == "in") { 
-		index = 2;  //indice array in
+		index = indexEnt;  //indice array in
 	} else if 	(inout == "out") {
-		index = 3; //indice array out
+		index = indexExt; //indice array out
 	}
 
 	let day = activeCell.id;
 	let orario = {hh: 0, mm: 0};
 	let d = new Date();
 	
-	if (!isNaN(activeMonth[day][index])) {              // se esiste già, usa quello
+	if (activeMonth[day][index] != null) {              // se esiste già, usa quello
 		orario = toHM(activeMonth[day][index]);
 	} else {                                            // se invece non esiste...
-		if (day == ( "day" + d.getDate() ) ) {          // se è oggi
-			orario.hh = d.getHours();
-			orario.mm = d.getMinutes();
+		if (day == ( "day" + d.getDate() ) ) {          // ...ed è oggi
+			orario = now();
 		} else {                                        // se no usa i default
 			if (inout == "in")  {orario = timeEn}
 			if (inout == "out") {orario = timeEx}
@@ -371,16 +453,35 @@ function fillTime(inout){
 	setValue("mm"+inout, pad(orario["mm"], 2, "0"));
 }
 
-// chiamata dia pulsanti di incremento/decremento ore e minuti
-function plusminus(tgt, incr, mini, maxi) {
+// chiamata dai pulsanti di incremento/decremento ore e minuti
+function plusminus(tgt, incr, mini, maxi, tgt2 = false, mini2 = -Infinity, maxi2 = +Infinity) {
 
-	let cell = node(tgt);
+	let cell  = node(tgt);
+	let delta2 = 0; 
+	
 	let val = parseInt(cell.textContent) + incr;
 
-	if (val < mini) { val = maxi + (val - mini) +1 }
-	if (val > maxi) { val = mini + (val - maxi) -1 }
+	if (val < mini) { 
+		val = maxi + (val - mini) +1;
+		delta2 = -1;
+	}
+	if (val > maxi) { 
+		val = mini + (val - maxi) -1;
+		delta2 = +1;
+	}
 
-	cell.textContent = pad(val, 2, "0");
+	cell.textContent = pad(val,  2, "0");
+	
+	let cell2;
+	let val2; 
+	
+	if (tgt2) {
+		cell2 = node(tgt2);
+		val2  = parseInt(cell2.textContent) + delta2;
+		val2  = Math.min(val2, maxi2);
+		val2  = Math.max(val2, mini2);
+		cell2.textContent = pad(val2, 2, "0");
+		}
 
 	return val
 }
@@ -405,11 +506,49 @@ function bip(inout) {
 	return minOnly
 }
 
+function resetDay(cID) {
+	if ( typeof(cID) == "unefined" ) {return}
+	
+	let userchoice = confirm("Azzera i dati del giorno?");
+	if (!userchoice) { return }
+	
+	activeMonth[cID][indexEnt] = null;
+	activeMonth[cID][indexExt] = null;
+	activeMonth[cID][4] = 0;
+	activeMonth[cID][indexErr] = false;
+	
+	updateCell(activeMonth, cID);
+	logFiller(cID);
+	refresh(activeMonth);
+	
+	return
+}
+
+function resetMonth(mese) {
+	if ( typeof(mese) == "unefined" ) {return}
+	
+	let userchoice = confirm("Azzera i dati del mese?");
+	if (!userchoice) { return }
+	
+	let userconfirm = confirm("Sicuro? Operazione non annullabile");
+	if (!userconfirm) { return }
+	
+	canc(savekey);
+	activeMonth = null;
+	activeCell  = null;
+	
+	clean(calendar);
+	clean(node("logIN"));
+	clean(node("logOUT"));
+	clean(node("summary"));
+}
+	
 
 
-
-function init() {
+function init(force = false) {
 	calendar = node("table");
+	activeMonth = load(savekey) || generaMese(force);
+	refresh(activeMonth);
 }
 
 
@@ -418,59 +557,51 @@ window.onload = function(){
 
 	debug && console.log("Calendario: ");
 	debug && console.log(calendar);
-	
-	activeMonth = generaMese(); // ricordarsi di togliere
 	debug && console.log(activeMonth);
 	
-
-	
-	
-	if (debug) {	
+	if (debug) {	// valido per maggio!
 		// giorno perfetto
-		activeMonth["day6"][2]= 465 +0;
-		activeMonth["day6"][3]= 990 +0;
+		activeMonth["day6"][indexEnt]= 465 +0;
+		activeMonth["day6"][indexExt]= 990 +0;
 		// giorno pareggio
-		activeMonth["day7"][2]= 465 +10;
-		activeMonth["day7"][3]= 990 +10;
+		activeMonth["day7"][indexEnt]= 465 +10;
+		activeMonth["day7"][indexExt]= 990 +10;
 		// giorno ritardo
-		activeMonth["day1"][2]= 465 +40;
-		activeMonth["day1"][3]= 990 +20;
+		activeMonth["day1"][indexEnt]= 465 +40;
+		activeMonth["day1"][indexExt]= 990 +20;
 		// giorno recupero
-		activeMonth["day2"][2]= 465 +20;
-		activeMonth["day2"][3]= 990 +50;
+		activeMonth["day2"][indexEnt]= 465 +20;
+		activeMonth["day2"][indexExt]= 990 +50;
 		// giorno feriein
-		activeMonth["day29"][2]= 465 +120;
-		activeMonth["day29"][3]= 990 +0;
+		activeMonth["day29"][indexEnt]= 465 +120;
+		activeMonth["day29"][indexExt]= 990 +0;
 		// giorno ferieout
-		activeMonth["day3"][2]= 465 +30;
-		activeMonth["day3"][3]= 990 -45;
-		
-		refresh(activeMonth);
+		activeMonth["day3"][indexEnt]= 465 +30;
+		activeMonth["day3"][indexExt]= 990 -45;
 	}
 }
+
+
 
 </script>
 
 <style>
-html {
-	font-size: 16px;
+html { 
+	font-size: 16px; 
 }
-@media (min-width: 600px) { html {font-size: 24px;} }
+	@media (min-width: 600px) { 
+		html {font-size: 24px;} 
+	}
 
+.smallFont { font-size: 0.75rem; }
+.smallestFont { font-size: 12px; }
 
-.smallFont {
-	font-size: 0.75rem;
+.fullWidth { 
+	width:100%; 
 }
-
-.smallestFont {
-	font-size: 12px;
-}
-
-.fullWidth {
-	width:100%;
-	/*max-width: 25rem;	*/
-}
-@media (min-width: 800px) { .fullWidth {max-width: 35rem;} }
+	@media (min-width: 800px) { 
+		.fullWidth {max-width: 35rem;} 
+	}
 
 
 body {
@@ -498,7 +629,24 @@ body {
 	height: 3rem;
 	overflow: hidden;
 	background-color: #ccccff;
+	display: flex;
 }
+
+.log {
+	line-height: 1.25rem;
+	min-width: 3rem;
+}
+
+#summary {
+	flex-grow: 1;
+	font-size: 2.5rem;
+	line-height: 2.5rem;
+	text-align: right;
+}
+
+.txtred   { color: red; }
+.txtgreen { color: darkgreen; }
+.txtblack { color: black;}
 
 #menuInfo {
 	margin-left:  0.25rem;
@@ -563,7 +711,6 @@ body {
 }
 
 .cell {
-	background-color: #ffffff;
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -584,49 +731,28 @@ body {
 	line-height: 2rem;
 }
 
-.credit {
-	background-color: #aaffaa;
-}
-
-.debit {
-	background-color: #ffaaaa;
-}
-
-.even {
-	background-color: #ffffaa;
-}
-
-.unfinished {
-	background-color: #aaaaff;
-}
+.credit     { background-color: #aaffaa; }
+.debit      { background-color: #ffaaaa; }
+.even       { background-color: #ffffaa; }
+.unfinished { background-color: #aaaaff; }
 
 .error {
 	border-color: red !important;
-	animation: blinker 0.5s linear infinite;
+	border-radius: 0 1rem;
+	animation: blinker 2s linear infinite;
 }
 
 @keyframes blinker {
-	30% {
-		opacity: 1;
-	}
-	60% {
-		opacity: 0;
-	}
-	62% {
-		opacity: 0;
-	}
-	70% {
-		opacity: 1;
-	}	
+	30% { opacity: 1; }
+	60% { opacity: 0.2;	}
+	62% { opacity: 1; }
 }
 
 .placeholder {
 	background-color: transparent;
 }
 
-.hidden {
-	display: none !important;
-}
+.hidden { display: none !important; }
 
 .active {
 	border-width: 4px;
@@ -679,21 +805,14 @@ body {
 }
 
 .btnGroup {
-	width: 8rem;
+	width: 15rem;
 	display: flex;
-	justify-content: center;
+	justify-content: space-evenly;
 }
 
-.hUP, .hDN {
-	width:        7rem;
-	margin-left:  0.5rem;
-	margin-right: 0.5rem;
-}
-
-.mUP, .mDN {
+.btnUP, .btnDN {
 	width:        3.5rem;
-	margin-left:  0.25rem;
-	margin-right: 0.25rem;
+
 }
 
 .time {
@@ -805,7 +924,6 @@ body {
 #factoryContainer {
 	margin-left: 1rem;
 	margin-right: 1rem;
-	/*background-color: white;*/
 	border-radius: 0.5rem;
 }
 
@@ -815,16 +933,6 @@ body {
 
 .vertCenter {
 	margin: auto;
-}
-
-@keyframes slide1 {
-  0%, 100% {
-    transform: translate(0, 0);
-  }
-
-  50% {
-    transform: translate(1rem, 0);
-  }
 }
 
 #signin, #signout {
@@ -838,7 +946,7 @@ body {
 }
 
 .sayOK, .sayNO {
-	width: 8rem;
+	width: 6rem;
 	height: 2rem;
 	line-height: 2rem;
 	text-align: center;
@@ -857,6 +965,82 @@ body {
 }
 
 
+#settingsFrame {
+	display: flex;
+	position: fixed;
+	z-index: 1000;
+	top: 0px;
+	bottom: 0px;
+	left: 0px;
+	background-color: #000000b0;
+}
+
+#settingsBox {
+	display: block;
+	position: absolute;
+	top: 2rem;
+	bottom: 6rem;
+	left: 2rem;
+	right: 2rem;
+	background-color: #cccccc;
+	overflow-y: auto;
+	padding:5px;
+}
+
+#backSign {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	bottom: 2rem;
+	left: 4rem;
+	right: 4rem;
+	margin: auto;
+	box-sizing: border-box;
+	height: 2rem;
+	border: 2px solid red;
+	border-radius: 1rem;
+	background-color: #ffcccc;
+}
+
+.cellguiderow {
+	display: flex;
+	align-items: center;
+}
+
+.cellguide {
+	width: 3rem;
+	text-align: center;
+	margin: 0.25rem 0.25rem;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.guidetext {
+	flex-grow: 1;
+}
+#resetContainer {
+	height: 2.5rem;
+	justify-content: center;
+	display: flex;
+}
+
+#fullReset {
+    padding: 0 2rem;
+    border: 0.25rem solid #ff0000;
+    background-color: #ff9999;
+    border-radius: 0.5rem;
+    margin-left: auto;
+    margin-right: auto;
+    /* flex-shrink: 1; */
+    line-height: 2rem;
+    text-align: center;
+    display: inline-block;
+}
+
 </style>
 </head>
 
@@ -871,7 +1055,7 @@ body {
 		
 		<div class="unselectable" id="month"></div>
 		
-		<div id="menuInfo" onclick="show('infoFrame')"> <!-- CAMBIARE ICONA E CALL -->
+		<div id="menuInfo" onclick="show('settingsFrame')"> <!-- CAMBIARE ICONA E CALL -->
 			<svg xmlns="http://www.w3.org/2000/svg" id="iconInfo" viewBox="0 0 1024 1024">
 				<path d="m640.8 12.64c40.68-5.326 85.35 9.973 106.5 47.33 28.91 51.11 12.97 122.6-40.87 156.7-41.97 26.63-98.75 28.74-137.6 0.9018-33.6-23.9-45.5-73.5-33.7-115.1 13.7-48 56.6-83.33 105.7-89.76zm23.7 330.9c22.1 55.7-5.4 119.8-25.3 174.7-35.6 97.2-104.8 279-116.7 315.4-13.7 41.6-0.4 59.4 26.3 48.8 45.6-18.5 96-98.6 131.2-124 14.4-10.4 30 13.6 23.1 29.6-27.9 64.8-138.5 161.5-225.5 199.2-48 20.8-111.2 35.8-157.3 14.8-38.9-17.5-45.9-60.9-40.4-97.4 16.3-107.1 64.7-205.3 102.8-305.6 22.03-58 64.68-156.2 68-173.3 6.1-31.3-16.2-39.1-41.1-25.7-50.4 27.2-98.4 106-125.6 123.2-15.3 9.7-31.3-7.1-28-20.8 8-33.6 84-106.4 112-129.6 74.4-61.6 140.7-75.3 187.3-79.51 41.41-3.781 92.42 7.921 109.2 50.21z"/>
 			</svg>
@@ -899,14 +1083,11 @@ body {
 
 			<div class="btnRow">
 				<div class="btnGroup">
-					<div class="myButton hUP" onclick="plusminus('hhin', +1 , 0, 23)">+1</div>
-				</div>
-				
-				<div class="separator"></div>
-				
-				<div class="btnGroup">
-					<div class="myButton mUP" onclick="plusminus('mmin', +1 , 0, 59)">+1</div>
-					<div class="myButton mUP" onclick="plusminus('mmin', +10, 0, 59)">+10</div>
+					<div class="myButton btnUP" onclick="plusminus('mmin', +60, 0, 59, 'hhin', 0, 23)">+60m</div>
+					<div class="myButton btnUP" onclick="plusminus('mmin', +10, 0, 59, 'hhin', 0, 23)">+10m</div>
+					<div class="myButton btnUP" onclick="plusminus('mmin', +1 , 0, 59, 'hhin', 0, 23)">+1m</div>
+
+
 				</div>
 			</div>
 
@@ -920,14 +1101,11 @@ body {
 
 			<div class="btnRow">
 				<div class="btnGroup">
-					<div class="myButton hDN" onclick="plusminus('hhin', -1 , 0, 23)">-1</div>
-				</div>
-				
-				<div class="separator"></div>
-				
-				<div class="btnGroup">
-					<div class="myButton mDN" onclick="plusminus('mmin', -1 , 0, 59)">-1</div>
-					<div class="myButton mDN" onclick="plusminus('mmin', -10, 0, 59)">-10</div>
+					<div class="myButton btnDN" onclick="plusminus('mmin', -60, 0, 59, 'hhin', 0, 23)">-60m</div>
+					<div class="myButton btnDN" onclick="plusminus('mmin', -10, 0, 59, 'hhin', 0, 23)">-10m</div>
+					<div class="myButton btnDN" onclick="plusminus('mmin', -1 , 0, 59, 'hhin', 0, 23)">-1m</div>
+
+
 				</div>
 			</div>
 			
@@ -945,14 +1123,11 @@ body {
 
 			<div class="btnRow">
 				<div class="btnGroup">
-					<div class="myButton hUP" onclick="plusminus('hhout', +1 , 0, 23)">+1</div>
-				</div>
-				
-				<div class="separator"></div>
-				
-				<div class="btnGroup">
-					<div class="myButton mUP" onclick="plusminus('mmout', +1 , 0, 59)">+1</div>
-					<div class="myButton mUP" onclick="plusminus('mmout', +10, 0, 59)">+10</div>
+					<div class="myButton btnUP" onclick="plusminus('mmout', +60, 0, 59, 'hhout', 0, 23)">+60m</div>
+					<div class="myButton btnUP" onclick="plusminus('mmout', +10, 0, 59, 'hhout', 0, 23)">+10m</div>
+					<div class="myButton btnUP" onclick="plusminus('mmout', +1 , 0, 59, 'hhout', 0, 23)">+1m</div>
+
+
 				</div>
 			</div>
 
@@ -966,14 +1141,11 @@ body {
 
 			<div class="btnRow">
 				<div class="btnGroup">
-					<div class="myButton hDN" onclick="plusminus('hhout', -1 , 0, 23)">-1</div>
-				</div>
-				
-				<div class="separator"></div>
-				
-				<div class="btnGroup">
-					<div class="myButton mDN" onclick="plusminus('mmout', -1 , 0, 59)">-1</div>
-					<div class="myButton mDN" onclick="plusminus('mmout', -10, 0, 59)">-10</div>
+					<div class="myButton btnDN" onclick="plusminus('mmout', -60, 0, 59, 'hhout', 0, 23)">-60m</div>
+					<div class="myButton btnDN" onclick="plusminus('mmout', -10, 0, 59, 'hhout', 0, 23)">-10m</div>
+					<div class="myButton btnDN" onclick="plusminus('mmout', -1 , 0, 59, 'hhout', 0, 23)">-1m</div>
+
+
 				</div>
 			</div>
 			
@@ -1039,7 +1211,96 @@ body {
 <!-- END CONTAINER -->
 
 <!-- FOOTER -->
-<div class="fullWidth unselectable" id="footer"></div>
+<div class="fullWidth unselectable" id="footer">
+	<div class="smallFont log">
+		In:
+		<br/>
+		Out: 
+	</div>
+	
+	<div class="smallFont log">
+		<span id="logIN"></span>
+		<br/>
+		<span id="logOUT"></span> 
+	</div>
+	
+	<div id="summary"></div>
+</div>
+
+
+<!-- SETTINGS -->
+<div class="fullWidth hidden" id="settingsFrame">
+	<div class="unselectable" id="settingsBox">
+	
+		<h2 style="text-align:center">Flessibilit&agrave; mensile per Liv.7 a Muggiano</h2>
+		
+		<p>
+		Questo tool permete di clacolare la flessibilità mensile residua (credito o debito) nello stabilimento di Muggiano, con le seguenti
+		limitazioni e criteri:
+		</p>
+		<ul>
+			<li><b>la flessibilit&agrave; viene calcolata a minuti;</b></li>
+			<li>l'ingresso anticipato non comporta credito;</li>
+			<li>le ferie non sono manualmente inseribili, ma il programma evidenzia i giorni in cui sono necessarie;</li>
+			<li>l'ingresso dopo il limite massimo richiede ferie in ingresso e non porta a debito;</li>
+			<li>l'uscita prima della fine della giornata richiede ferie e non porta a credito, ma viene mantenuto il debito mattutino;</li>
+			<li>il programma salva i dati localmente sul dispositivo, ma la cancellazione dati (es.: "Cancella dati" nelle app android) pu&ograve: comportarne la perdita;</li>
+			<li>per resettare un giorno, tenere premuto o fare click destro sul giorno;</li>
+			<li>ognuno &egrave; responsabile delle proprie timbrature, orari, recuperi ecc.</li>
+		</ul>
+
+			
+		<div class="cellguiderow">
+			<div class="cellguide date"></div>
+			<div style="flex-grow:1">Giornata da sviluppare</div><br>
+		</div>
+		<div class="cellguiderow">
+			<div class="cellguide date active"></div>
+			<div style="flex-grow:1">Giorno selezionato</div><br>
+		</div>
+		<div class="cellguiderow">
+			<div class="cellguide date unfinished"></div>
+			<div style="flex-grow:1">Giornata da completare</div><br>
+		</div>
+		<div class="cellguiderow">
+			<div class="cellguide date credit"></div>
+			<div style="flex-grow:1">Giornata con credito</div><br>
+		</div>
+		<div class="cellguiderow">
+			<div class="cellguide date even"></div>
+			<div style="flex-grow:1">Giornata in pareggio</div><br>
+		</div>	
+		<div class="cellguiderow">
+			<div class="cellguide date debit"></div>
+			<div style="flex-grow:1">Giornata con debito</div><br>
+		</div>
+		<div class="cellguiderow">
+			<div class="cellguide date error"></div>
+			<div style="flex-grow:1">Problema (prendere ferie in ingresso o uscita)</div><br>
+		</div>		
+
+		<hr/><hr/><hr/>
+		
+		<div id="resetContainer">
+			<div class="unselectable" id="fullreset" onclick="resetMonth(activeMonth); hide('settingsFrame'); init(true);">
+				<b>!!! RESET MESE !!!</b>
+			</div>
+		</div>
+		
+		
+		
+		
+	
+	</div>
+	
+	<div class="unselectable" id="backSign" onclick="hide('settingsFrame')">
+		<b>OK</b>
+	</div>
+	
+</div>
+
+
+
 
 </body>
 </html>
