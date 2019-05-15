@@ -147,6 +147,7 @@ body {
 .debit      { background-color: #ffaaaa; }
 .even       { background-color: #ffffaa; }
 .unfinished { background-color: #aaaaff; }
+.holiday    { background-color: transparent; }
 
 .error {
 	border-color: red !important;

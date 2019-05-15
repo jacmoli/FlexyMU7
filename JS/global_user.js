@@ -12,6 +12,7 @@ const lunchE  = {hh: 13, mm: 45};	//        fine pausa
 const indexEnt = 2;
 const indexExt = 3;
 const indexErr = 5;
+const indexHolid = 6;
 
 const savekey = "C81_flexy7MU";
 

@@ -5,7 +5,15 @@ function MonthConstructor(n, firstDay, name){ // f-check: PURO JS
 	this["firstDay"] = firstDay; // 0-6
 	this["name"] = name;
 	for(i=1; i<=n; i++){
-		this["day"+ i] = [i, (firstDay - 1 + i)%7, null, null, 0, false]; // GG (1-n), giornosett (0-6), MM-in, MM-out, flex, ferie/problemi orario?
+		this["day"+ i] = [
+			i,						// 0: GG (da 1 a n)
+			(firstDay - 1 + i)%7,	// 1: giorno settimana (da 0 a 6)
+			null,					// 2: orario ingresso (MM)
+			null,					// 3: orario uscita (MM)
+			0,						// 4: flessibilita del giorno
+			false, 					// 5: giorno problematico (prendere ferie ecc)
+			false					// 6: vacanza o non lavorativo
+		]; 
 	}
 	this["monthFlexy"] = 0;
 }
@@ -196,6 +204,14 @@ function clickDay(cID){ // f-check: spurio
 	
 	logFiller(cID);
 	
+	if (activeMonth[cID][indexHolid] == true) {
+		hide("getIN");
+		hide("getOUT");
+	} else {	
+		show("getIN");
+		show("getOUT");		
+	}
+	
 	return newCell
 }
 
@@ -244,10 +260,16 @@ function dayFlex(mese, cID) { // f-check: PURO JS
 	
 	let giorno = mese[cID];
 	
+	if (giorno[indexHolid] == true) {
+		updateCell(mese, cID);
+		return
+	}
+	
 	// se non ho timbratura in ingresso non ho giornata, resetta ed esci
 	if (giorno[indexEnt] == null) { 
 		giorno[4] = 0;
 		giorno[indexErr] = false;
+
 		return
 	}
 	
@@ -307,16 +329,27 @@ function monthTotal(mese) { // f-check: PURO JS
 
 function updateCell(mese, cID) { // f-check: PURO CSS
 
-	if ( typeof(mese) == "unefined" || typeof(cID) == "unefined" ) {return}
+	if ( typeof(mese) == "undefined" || typeof(cID) == "undefined" ) {return}
 
 	let cella  = node(cID);
 	let giorno = mese[cID];
 	
-	let full = !!( giorno[indexEnt] && giorno[indexExt] ); //true se il giorno è completo
 	
-	cella.classList.remove("debit", "even", "credit", "unfinished", "error");
+	cella.classList.remove("debit", "even", "credit", "unfinished", "error", "holiday");
+
 	
-	// se il giorno non è sviluppato, pulisci ed esci
+	console.log("giorno indexHolid= ", giorno[indexHolid]);
+	// se ferie o vacanza, oscura ed esci	
+	if ( giorno[indexHolid] == true ) {
+		cella.classList.add("holiday");
+		hide("getIN");
+		hide("getOUT");
+		return 
+	}
+	
+		show("getIN");
+		show("getOUT");	
+	// se il giorno non è sviluppato, esci (hai pulito prima)
 	if ( giorno[indexEnt] == null ) {
 		return 
 	}
@@ -331,6 +364,8 @@ function updateCell(mese, cID) { // f-check: PURO CSS
 	giorno[indexErr] && cella.classList.add("error");
 	
 	// se le timbrature sono ok, colora la cella in base al margine di minuti
+	let full = !!( giorno[indexEnt] && giorno[indexExt] ); //true se il giorno è completo
+	
 	if        ( full && giorno[4] >  0 ) {
 		cella.classList.add("credit");
 	} else if ( full && giorno[4] <  0 ) {
@@ -425,16 +460,31 @@ function bip(inout) {
 }
 
 function resetDay(cID) {
-	if ( typeof(cID) == "unefined" ) {return}
+	if ( typeof(cID) == "undefined" ) {return}
 	
-	let userchoice = confirm("Azzera i dati del giorno?");
-	if (!userchoice) { return }
+	let userchoice;
+	let auxFlag = true;
 	
-	activeMonth[cID][indexEnt] = null;
-	activeMonth[cID][indexExt] = null;
-	activeMonth[cID][4] = 0;
-	activeMonth[cID][indexErr] = false;
+	if (
+		activeMonth[cID][indexEnt] == null &&
+		activeMonth[cID][indexExt] == null &&
+		activeMonth[cID][4] == 0 &&
+		activeMonth[cID][indexErr] == false &&
+		activeMonth[cID][indexHolid] == false
+	) {
+		activeMonth[cID][indexHolid] = true;
+		auxFlag = false;
+	}
 	
+	userchoice = auxFlag && confirm("Azzera i dati del giorno?");
+	if (userchoice) 
+	{ 
+		activeMonth[cID][indexEnt] = null;
+		activeMonth[cID][indexExt] = null;
+		activeMonth[cID][4] = 0;
+		activeMonth[cID][indexErr] = false;
+		activeMonth[cID][indexHolid] = false;
+	}
 	updateCell(activeMonth, cID);
 	logFiller(cID);
 	refresh(activeMonth);
@@ -459,6 +509,8 @@ function resetMonth(mese) {
 	clean(node("logIN"));
 	clean(node("logOUT"));
 	clean(node("summary"));
+	show("getIN");
+	show("getOUT");
 }
 	
 
