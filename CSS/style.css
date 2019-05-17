@@ -366,6 +366,8 @@ body {
 	display: flex;
 	height: 2.5rem;
 	width: 6rem;
+	max-width: 8rem;
+	margin: 0 auto;
 	flex-grow: 1;
 	align-items: center;
 	justify-content: space-between;
@@ -443,8 +445,8 @@ body {
 	position: absolute;
 	top: 2rem;
 	bottom: 6rem;
-	left: 2rem;
-	right: 2rem;
+	left: 1rem;
+	right: 1rem;
 	background-color: #cccccc;
 	overflow-y: auto;
 	padding:5px;
@@ -485,6 +487,7 @@ body {
 .guidetext {
 	flex-grow: 1;
 }
+
 #resetContainer {
 	height: 2.5rem;
 	justify-content: center;
