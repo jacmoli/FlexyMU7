@@ -30,7 +30,7 @@ body {
 	position: fixed;
 	top: 0px;
 	bottom: 3rem;
-	/*overflow-y: scroll;*/
+	overflow-y: auto;
 }
 
 #footer {
@@ -42,15 +42,16 @@ body {
 	overflow: hidden;
 	background-color: #ccccff;
 	display: flex;
+	align-items: center;
 }
 
 .log {
 	line-height: 1.25rem;
-	min-width: 3rem;
+	width: 2rem;
 }
 
 #summary {
-	flex-grow: 1;
+	width: 7rem;
 	font-size: 2.5rem;
 	line-height: 2.5rem;
 	text-align: right;
@@ -256,6 +257,9 @@ body {
 	text-align: left;
 }
 
+#dayFlex {
+	text-align: center;
+}
 
 /* custom buttons */
 
@@ -306,11 +310,13 @@ body {
 }
 
 #actions {
+	margin-top: 2rem;
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	margin-top: 2rem;
 }
+
+
 
 #getIN, #factoryContainer, #getOUT {
 	display: flex;
@@ -350,6 +356,50 @@ body {
 
 #signin, #signout {
 	height: 3rem;
+}
+
+#dayFlex {
+	margin-right: 1rem;
+}
+
+#auxiliary {
+	display: flex;
+	height: 2.5rem;
+	width: 6rem;
+	flex-grow: 1;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.auxControl {
+	display: flex;
+	width: 2rem;
+	height: 2rem;
+	align-items: center;
+	justify-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	text-align: center;
+	border-radius: 0.75rem;
+	border: 1px solid black;
+}
+
+.eraser {
+	background-color: #ffff00;
+}
+
+.eraserIcon {
+	width: 1.5rem;
+	height: 1.5rem;
+}
+
+.away {
+	background-color: #00bcd4;
+}
+
+.awayIcon {
+	width: 1.25rem;
+	height: 1.25rem;	
 }
 
 .okORno {

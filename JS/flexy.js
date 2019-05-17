@@ -88,6 +88,48 @@ function generaMese(force = false){ // f-check: PURO JS
 	name = name + " " + yearID;
 	let meseCorr = new MonthConstructor(nDays, firstDay, name);
 	
+	switch(monthID + 1) {
+		case 1:
+			meseCorr["day1"][6] = true;
+			meseCorr["day6"][6] = true;
+			break;
+		case 2:
+
+			break;			
+		case 3:
+
+			break;		
+		case 4:
+			meseCorr["day25"][6] = true;
+			break;		
+		case 5:
+			meseCorr["day1"][6] = true;
+			break;		
+		case 6:
+			meseCorr["day2"][6] = true;
+			break;		
+		case 7:
+
+			break;		
+		case 8:
+			meseCorr["day15"][6] = true;
+			break;		
+		case 9:
+
+			break;		
+		case 10:
+
+			break;		
+		case 11:
+			meseCorr["day1"][6] = true;
+			break;			
+		case 12:
+			meseCorr["day8"][6] = true;
+			meseCorr["day25"][6] = true;
+			meseCorr["day26"][6] = true;
+			break;			
+	}	
+	
 	debug && console.log(meseCorr);
 	return meseCorr;
 	
@@ -138,7 +180,7 @@ function refresh(mese) {	// f-check: spurio
 			cella.setAttribute("class"  , "cell date");
 			cella.setAttribute("id"     , "day" + j);
 			cella.setAttribute("onclick", "activeCell = clickDay('day" + j + "')");
-			cella.setAttribute("oncontextmenu", "resetDay('day" + j + "'); return false");			
+			cella.setAttribute("ondblclick", "resetDay('day" + j + "')");			
 			cella.textContent = j;
 			calendar.appendChild(cella);
 		}
@@ -153,6 +195,8 @@ function refresh(mese) {	// f-check: spurio
 			dayFlex(mese, dayID);
 		}
 	)
+	
+	activeCell = node(load(saveACell));
 	
 	if (activeCell && activeCell.id) { 
 		activeCell = clickDay(activeCell.id); 
@@ -178,8 +222,11 @@ function refresh(mese) {	// f-check: spurio
 	
 	logFiller(activeCell.id);
 	
-	canc(savekey);
-	save(savekey, mese);
+	canc(saveMonth);
+	canc(saveACell);
+	
+	save(saveMonth, mese);
+	save(saveACell, activeCell.id);
 	
 	
 	return
@@ -187,13 +234,15 @@ function refresh(mese) {	// f-check: spurio
 }
 
 function clickDay(cID){ // f-check: spurio
-	if ( typeof(cID) == "unefined" ) {return}
+	if ( typeof(cID) == "undefined" ) {return}
 	
 	let newCell = node(cID);
 	debug && console.log("newCell inizializzata: ", newCell);
 	
 	let oldCell = calendar.querySelector(".active");
 	debug && console.log("oldCell esistente: ", oldCell);
+	
+	save(saveACell, newCell.id);
 	
 	if (oldCell == newCell) { return newCell}
 	
@@ -217,10 +266,12 @@ function clickDay(cID){ // f-check: spurio
 
 function logFiller(cID) {
 
-	if ( typeof(cID) == "unefined" ) {return}
+	if ( typeof(cID) == "undefined" ) {return}
 	
 	let timeINaux  = activeMonth[cID][indexEnt];
 	let timeOUTaux = activeMonth[cID][indexExt];
+	let dayMarginaux  = activeMonth[cID][indexFlex];
+	let dayMargin;
 	
 	let timeIN  = timeINaux  
 		? pad(toHM(timeINaux).hh,  2, "0") + ":" + pad(toHM(timeINaux).mm,  2, "0")
@@ -230,11 +281,20 @@ function logFiller(cID) {
 		? pad(toHM(timeOUTaux).hh, 2, "0") + ":" + pad(toHM(timeOUTaux).mm, 2, "0")
 		: "N / A";
 		
-	node("logIN").textContent  = timeIN;
-	node("logOUT").textContent = timeOUT;
+	if (timeINaux) {
+		dayMargin = dayMarginaux > 0 
+			? "+" + dayMarginaux
+			:       dayMarginaux
+	}
 	
-	node("logIN" ).classList.remove("txtred", "txtblack");
-	node("logOUT").classList.remove("txtred", "txtblack");
+		
+	node("logIN").textContent   = timeIN;
+	node("logOUT").textContent  = timeOUT;
+	node("dayFlex").textContent = dayMargin;
+	
+	node("logIN"  ).classList.remove("txtred", "txtblack");
+	node("logOUT" ).classList.remove("txtred", "txtblack");
+	node("dayFlex").classList.remove("txtred", "txtgreen", "txtblack");
 	
 	if (timeINaux && timeINaux > mmEn + flexy) {
 		node("logIN" ).classList.add("txtred");
@@ -248,6 +308,14 @@ function logFiller(cID) {
 		node("logOUT").classList.add("txtblack");
 	}
 	
+	if (dayMarginaux > 0) { 
+		node("dayFlex").classList.add("txtgreen"); 
+	} else if (dayMarginaux < 0) {
+		node("dayFlex").classList.add("txtred");
+	} else {
+		node("dayFlex").classList.add("txtblack");
+	}
+	
 	return
 }
 
@@ -256,7 +324,7 @@ function logFiller(cID) {
 function dayFlex(mese, cID) { // f-check: PURO JS
 // calcola i vari margini giornalieri e aggiorna il totale mensile
 
-	if ( typeof(cID) == "unefined" ) {return}
+	if ( typeof(cID) == "undefined" ) {return}
 	
 	let giorno = mese[cID];
 	
@@ -306,7 +374,7 @@ function dayFlex(mese, cID) { // f-check: PURO JS
 
 function monthTotal(mese) { // f-check: PURO JS
 
-	if ( typeof(mese) == "unefined" ) {return}
+	if ( typeof(mese) == "undefined" ) {return}
 	
 	let monthMargin = 0;
 	let dayMargin = 0;
@@ -338,7 +406,7 @@ function updateCell(mese, cID) { // f-check: PURO CSS
 	cella.classList.remove("debit", "even", "credit", "unfinished", "error", "holiday");
 
 	
-	console.log("giorno indexHolid= ", giorno[indexHolid]);
+	debug && console.log("giorno indexHolid= ", giorno[indexHolid]);
 	// se ferie o vacanza, oscura ed esci	
 	if ( giorno[indexHolid] == true ) {
 		cella.classList.add("holiday");
@@ -377,7 +445,7 @@ function updateCell(mese, cID) { // f-check: PURO CSS
 
 // fillTime viene chiamata dai pulsanti di timbratura ingresso e uscita
 function fillTime(inout){
-	if ( typeof(activeCell) == "unefined" || activeCell == null) {return}	
+	if ( typeof(activeCell) == "undefined" || activeCell == null) {return}	
 	
 	let index;
 	if 			(inout == "in") { 
@@ -459,11 +527,8 @@ function bip(inout) {
 	return minOnly
 }
 
-function resetDay(cID) {
+function resetDay(cID, forced = false) {
 	if ( typeof(cID) == "undefined" ) {return}
-	
-	let userchoice;
-	let auxFlag = true;
 	
 	if (
 		activeMonth[cID][indexEnt] == null &&
@@ -472,11 +537,10 @@ function resetDay(cID) {
 		activeMonth[cID][indexErr] == false &&
 		activeMonth[cID][indexHolid] == false
 	) {
-		activeMonth[cID][indexHolid] = true;
-		auxFlag = false;
+		return
 	}
 	
-	userchoice = auxFlag && confirm("Azzera i dati del giorno?");
+	let userchoice = forced || confirm("Azzera i dati del giorno?");
 	if (userchoice) 
 	{ 
 		activeMonth[cID][indexEnt] = null;
@@ -485,6 +549,8 @@ function resetDay(cID) {
 		activeMonth[cID][indexErr] = false;
 		activeMonth[cID][indexHolid] = false;
 	}
+	
+	
 	updateCell(activeMonth, cID);
 	logFiller(cID);
 	refresh(activeMonth);
@@ -492,8 +558,48 @@ function resetDay(cID) {
 	return
 }
 
+function toggleHoliday(cID) {
+
+	let userchoice;
+	
+	if (activeMonth[cID][indexHolid] == false) {
+		if (
+			activeMonth[cID][indexEnt] == null &&
+			activeMonth[cID][indexExt] == null &&
+			activeMonth[cID][4] == 0 &&
+			activeMonth[cID][indexErr] == false 
+		) {
+			activeMonth[cID][indexHolid] = true;
+			updateCell(activeMonth, cID);
+			logFiller(cID);
+			refresh(activeMonth);
+			return
+		} else {
+
+			userchoice = confirm("Azzera i dati del giorno e impostare come festivo o assenza?");
+		
+			if (!userchoice) { 
+				return 
+			} else {		
+				resetDay(cID, true);
+				activeMonth[cID][indexHolid] = true;
+				updateCell(activeMonth, cID);
+				logFiller(cID);
+				refresh(activeMonth);
+				return
+			}
+		}		
+	} else {
+		activeMonth[cID][indexHolid] = false;
+		updateCell(activeMonth, cID);
+		logFiller(cID);
+		refresh(activeMonth);
+		return
+	}
+}
+
 function resetMonth(mese) {
-	if ( typeof(mese) == "unefined" ) {return}
+	if ( typeof(mese) == "undefined" ) {return}
 	
 	let userchoice = confirm("Azzera i dati del mese?");
 	if (!userchoice) { return }
@@ -501,7 +607,7 @@ function resetMonth(mese) {
 	let userconfirm = confirm("Sicuro? Operazione non annullabile");
 	if (!userconfirm) { return }
 	
-	canc(savekey);
+	canc(saveMonth);
 	activeMonth = null;
 	activeCell  = null;
 	
@@ -517,7 +623,8 @@ function resetMonth(mese) {
 
 function init(force = false) {
 	calendar = node("table");
-	activeMonth = load(savekey) || generaMese(force);
+	activeMonth = load(saveMonth) || generaMese(force);
+	activeCell  = load(saveACell);
 	refresh(activeMonth);
 }
 
